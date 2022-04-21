@@ -17,7 +17,7 @@ composer require xylemical/http
 
 use Xylemical\Http;
 
-use Xylemical\Http\Field;
+use Xylemical\Http\StructuredField\Field;
 
 $request = ...; // Using Psr\Http\Message\RequestInterface
 

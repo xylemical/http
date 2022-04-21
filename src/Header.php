@@ -2,68 +2,135 @@
 
 namespace Xylemical\Http;
 
+use Exception;
+use Xylemical\Parser\Parser;
+
 /**
- * Provides a simplified interaction with the header using the structured field.
+ * Provides the header handler.
  */
-class Header implements \Stringable {
+final class Header {
 
   /**
-   * Predefined header types.
-   */
-  public const HEADER_TYPES = [];
-
-  /**
-   * The structured field.
+   * The header name.
    *
-   * @var \Xylemical\Http\StructuredFieldInterface|null
+   * @var string
    */
-  protected ?StructuredFieldInterface $item;
+  protected string $name;
+
+  /**
+   * The header item.
+   *
+   * @var mixed
+   */
+  protected mixed $item;
 
   /**
    * Header constructor.
    *
-   * @param string $value
-   *   The header value.
-   * @param string $type
-   *   The header type, leave blank for auto-completion.
+   * @param string $name
+   *   The name.
+   * @param mixed|null $item
+   *   The value.
    */
-  public function __construct(string $value, string $type = '') {
-    $type = $type ?: (self::HEADER_TYPES[$value] ?? 'list');
-    $this->item = Field::parse($type, $value);
+  public function __construct(string $name, mixed $item = NULL) {
+    $this->name = $name;
+    $this->item = $item;
   }
 
   /**
-   * {@inheritdoc}
-   */
-  public function __toString(): string {
-    return (string) $this->item;
-  }
-
-  /**
-   * Check the header is filled with valid data.
+   * Get the header name.
    *
-   * @return bool
-   *   The result.
+   * @return string
+   *   The name.
    */
-  public function isValid(): bool {
-    return (string) $this !== '';
+  public function getName(): string {
+    return $this->name;
   }
 
   /**
-   * Normalize the header name.
+   * Get the header item.
+   *
+   * @return mixed
+   *   The header item.
+   */
+  public function getItem(): mixed {
+    return $this->item;
+  }
+
+  /**
+   * Normalizes a header name.
    *
    * @param string $header
    *   The name.
+   * @param \Xylemical\Http\ProviderInterface|null $provider
+   *   The provider.
    *
    * @return string
-   *   The normalized header.
+   *   The normalized header name.
    */
-  public static function normalize(string $header): string {
-    $header = trim($header);
-    $header = strtolower($header);
-    $header = explode('-', $header);
-    $header = array_map('ucfirst', $header);
-    return implode('-', $header);
+  public static function normalize(string $header, ?ProviderInterface $provider = NULL): string {
+    $name = strtolower($header);
+    if ($provider->applies($name)) {
+      return $provider->normalize($header);
+    }
+    return implode('-', array_map('ucfirst', explode('-', $name)));
+  }
+
+  /**
+   * Parse header lines into this header object.
+   *
+   * @param string $name
+   *   The name.
+   * @param \Xylemical\Http\ProviderInterface $provider
+   *   The provider.
+   *
+   * @return \Xylemical\Http\Header
+   *   The header.
+   */
+  public static function parse(string $name, array $values, ProviderInterface $provider): Header {
+    $header = NULL;
+    try {
+      $name = strtolower($name);
+      if (!$provider->applies($name)) {
+        throw new Exception();
+      }
+
+      $line = $provider->getLine($name, $values);
+      $parser = new Parser(
+        $provider->getTokenizer($name),
+        $provider->getLexer($name)
+      );
+      return new Header($parser->parse($line));
+    }
+    catch (Exception) {
+    }
+    return new Header($header);
+  }
+
+  /**
+   * Generate the header lines from the header object.
+   *
+   * @param \Xylemical\Http\Header $header
+   *   The header.
+   * @param \Xylemical\Http\ProviderInterface $provider
+   *   The provider.
+   *
+   * @return string[]
+   *   The header lines.
+   */
+  public static function generate(Header $header, ProviderInterface $provider): array {
+    $values = [];
+    try {
+      $name = strtolower($header->getName());
+      if ($provider->applies($name)) {
+        throw new Exception();
+      }
+
+      return $provider->getValue($name, $provider->serialize($name, $header->getItem()));
+    }
+    catch (Exception) {
+    }
+    return $values;
   }
 
 }

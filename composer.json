@@ -21,7 +21,8 @@
     }
   },
   "require": {
-    "php": ">=8.0"
+    "php": ">=8.0",
+    "xylemical/parser": "dev-master"
   },
   "require-dev": {
     "httpwg/structured-field-tests": "dev-main",
